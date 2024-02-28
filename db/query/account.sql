@@ -11,6 +11,10 @@ INSERT INTO accounts (
 SELECT * FROM accounts
 WHERE id = $1 LIMIT 1;
 
+-- name: GetAllAccounts :many
+SELECT * FROM accounts
+LIMIT $1 OFFSET $2;
+
 -- name: GetAccountForUpdate :one
 SELECT * FROM accounts
 WHERE id = $1 LIMIT 1 
