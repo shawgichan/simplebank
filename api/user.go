@@ -38,13 +38,14 @@ func (server *Server) CreateUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
-
-	user, err := server.store.CreateUser(c, db.CreateUserParams{
+	arg := db.CreateUserParams{
 		Username:       req.Username,
 		HashedPassword: hashedPassword,
 		FullName:       req.FullName,
 		Email:          req.Email,
-	})
+	}
+
+	user, err := server.store.CreateUser(c, arg)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok {
 			switch pqErr.Code.Name() {
