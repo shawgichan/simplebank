@@ -2,15 +2,17 @@ package api
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	db "github.com/shawgichan/simplebank/db/sqlc"
+	"github.com/shawgichan/simplebank/token"
 )
 
 type createAccountRequest struct {
-	Owner    string `json:"owner" binding:"required"`
 	Currency string `json:"currency" binding:"required,currency"`
 }
 
@@ -21,8 +23,14 @@ func (server *Server) createAccount(c *gin.Context) {
 		return
 	}
 
+	authPayload := c.MustGet(authorizationPayloadKey).(*token.Payload)
+	if _, err := server.store.GetUser(c, authPayload.Username); err != nil {
+		err = fmt.Errorf("user with %v as username doesn't exists", authPayload.Username)
+		c.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
 	arg := db.CreateAccountParams{
-		Owner:    req.Owner,
+		Owner:    authPayload.Username,
 		Currency: req.Currency,
 		Balance:  0,
 	}
@@ -64,6 +72,13 @@ func (server *Server) getAccount(c *gin.Context) {
 		return
 	}
 
+	authPayload := c.MustGet(authorizationPayloadKey).(*token.Payload)
+	if account.Owner != authPayload.Username {
+		err := errors.New("account doesn't belong to the authenticated user")
+		c.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
 	c.JSON(http.StatusOK, account)
 
 }
@@ -79,7 +94,9 @@ func (server *Server) getAllAccounts(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	accounts, err := server.store.GetAllAccounts(c, db.GetAllAccountsParams{
+	authPayload := c.MustGet(authorizationPayloadKey).(*token.Payload)
+	accounts, err := server.store.ListAccounts(c, db.ListAccountsParams{
+		Owner:  authPayload.Username,
 		Limit:  req.PageSize,
 		Offset: (req.PageID - 1) * req.PageSize,
 	})
